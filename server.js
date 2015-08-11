@@ -1,64 +1,45 @@
-var io = require('socket.io')(9999);
+var fs = require("fs");
+var server = require("http").createServer(function(req, res) {
+     res.writeHead(200, {"Content-Type":"text/html"});
+     var output = fs.readFileSync("./index.html", "utf-8");
+     res.end(output);
+}).listen(9999);
+var io = require("socket.io").listen(server);
+
 var NeDB = require('nedb');
 var db = {};
-db.users = new NeDB({
-  filename: 'usersfile'
+db.comment = new NeDB({
+  filename: 'commentfile'
 });
 
-db.users.loadDatabase();
-
-// insert
-db.users.insert({name: 'hoge'});
-db.users.insert({name: 'fuga'});
-db.users.insert({name: 'uga'});
-
-db.users.insert([
-  {name: 'foo'},
-  {name: 'bar'}
-  ], function(err, newDoc){
-    console.log("[INSERT]");
-    console.log(newDoc);
-});
-
-// find
-db.users.find({name: 'fuga'},
-  function(err, docs){
-    console.log("[FIND]");
-    console.log(docs);
-});
-db.users.find({name: /f*uga/},
-  function(err, docs){
-    console.log("[FIND F*]");
-    console.log(docs);
-});
-
-// remove
-db.users.remove(
-  {name: 'fuga'},
-  {multi: true},
-  function (err, numRemoved){
-    console.log("[REMOVE]");
-    console.log(numRemoved);
-});
-db.users.remove(
-  {name: 'uga'},
-  {multi: true},
-  function (err, numRemoved){
-    console.log("[REMOVE]");
-    console.log(numRemoved);
-});
+db.comment.loadDatabase();
 
 io.on('connection', function (socket) {
 
-  //接続通知をクライアントに送信
-  io.emit("sendMessageToClient", {value:"1人入室しました。"});
+  db.comment.find({}, function(err, docs){
+    console.log("[FIND]");
+    console.log(docs);
+    io.emit("initMessageToClient", docs);
+  })
+  var enterTime = new Date();
 
-  //クライアントからの受信イベントを設定
+  // 入室通知
+  io.emit("sendMessageToClient", {value:"1人入室しました。", datetime: enterTime.getTime()});
+
+  // 投稿内容を他のブラウザに通知
   socket.on("sendMessageToServer", function (data) {
-      io.emit("sendMessageToClient", {value:data.value});
-  });     
+    var time = new Date();
+    // nedb使って保存
+    db.comment.insert(
+        [{comment: data, datetime: time.getTime()}]
+      , function(err, newDoc){
+        console.log("[INSERT]");
+        console.log(newDoc);
+    });
+    io.emit("sendMessageToClient", {value:data.value, datetime: time.getTime()});
+  });
 
-  //接続切れイベントを設定
+  // 退室通知
   socket.on("disconnect", function () {
       io.emit("sendMessageToClient", {value:"1人退室しました。"});
   });

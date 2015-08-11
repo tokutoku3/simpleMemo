@@ -2,34 +2,42 @@
 <html>
 <head></head>
 <body>
-  <ul id="msg_list"></ul>
   <form action="" method="post" onsubmit="return false;">
     <input type="text" class="text" id="message"/>
-    <input type="submit" class="button" id="send" value="送信" />
+    <input type="submit" class="button" id="send" value="send" />
   </form>
-</body>
-<script type="text/javascript" src="http://sample-domain.yahoo.co.jp/jquery.min.js"></script>
-<!-- socket.ioのクラインアントライブラリを取得 -->  
-<script src="http://sample-domain.yahoo.co.jp/socket.io.js"></script>
+  <hr>
+  <ul id="msg_list"></ul>
+<script type="text/javascript" src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 <script type="text/javascript">
 
-//接続先の指定  
-var url = "sample-websocket-domain.yahoo.co.jp:8080";
+// 接続先の指定
+var url    = "localhost:9999";
+var socket = io.connect(url);
 
-//接続
-var socket = io.connect(url);   
+var initialized = false;
 
-//サーバから受け取るイベントを作成
-socket.on("sendMessageToClient", function (data) {
-    $("#msg_list").prepend("<li>" + data.value + "</li>");
+socket.on("initMessageToClient", function (data) {
+  if (initialized) {
+    return;
+  }
+
+  initialized = true;
+  $.each(data, function() {
+    $("#msg_list").prepend("<li>" + this.datetime + ': ' + this.comment.value + "</li>");
+  });
 });
 
-//ボタンクリック時に、メッセージ送信
+socket.on("sendMessageToClient", function (data) {
+    $("#msg_list").prepend("<li>" + data.datetime + ': ' + data.value + "</li>");
+});
+
 $("input#send").click(function(){
     var msg = $("#message").val(); 
     $("#message").val(""); 
-    //サーバへ送信
     socket.emit("sendMessageToServer", {value:msg}); 
 });
 </script>
+</body>
 </html>
